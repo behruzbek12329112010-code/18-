@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musiqa Pleyer</title>
+    <style>
+        /* Asosiy sozlamalar */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f8f9fa; padding: 20px; display: flex; justify-content: center; }
+        
+        .playlist { width: 100%; max-width: 850px; display: flex; flex-direction: column; gap: 12px; }
+        
+        /* Har bir musiqa qatori (Card) dizayni */
+        .track { 
+            display: flex; align-items: center; background: #fff; padding: 12px 20px; 
+            border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border: 1px solid #eef0f2;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .track:hover { background: #f8fbff; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+        .track.active { border-color: #2979ff; background: #f0f6ff; } /* Qo'shiq chalinayotgandagi holat */
+        
+        /* Rasm qismi */
+        .cover { width: 55px; height: 55px; border-radius: 8px; object-fit: cover; margin-right: 20px; background: #eee; }
+        
+        /* Ma'lumotlar qismi */
+        .info { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; }
+        .artist { color: #2979ff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .title { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 6px; }
+        .meta { display: flex; gap: 15px; font-size: 12px; color: #6c757d; font-weight: 600; align-items: center; }
+        .meta span { display: flex; align-items: center; gap: 5px; }
+        
+        /* O'ng tomon (Yuklab olish va Raqam) */
+        .actions { display: flex; align-items: center; gap: 25px; }
+        .download-btn { 
+            background: #f1f3f5; border: none; width: 34px; height: 34px; 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            cursor: pointer; color: #495057; transition: background 0.2s;
+        }
+        .download-btn:hover { background: #e2e6ea; color: #000; }
+        .number { font-size: 20px; font-weight: 800; color: #343a40; width: 30px; text-align: right; }
+        
+        /* Ikonkalar */
+        svg { width: 14px; height: 14px; fill: currentColor; }
+        .download-btn svg { width: 16px; height: 16px; }
+    </style>
+</head>
+<body>
+
+    <div class="playlist" id="playlist">
+        </div>
+
+    <audio id="audio-player"></audio>
+
+    <script>
+        // 1. Ma'lumotlar bazasi (10 ta muzika)
+        // Dastur ishlashi uchun src va cover joylariga o'zingizdagi mahalliy papkadagi rasmlar va mp3 nomlarini yozing
+        const songs = [
+            { artist: "СНЕГУРОЧКА", title: "Расскажи Снегурочка", duration: "02:00", downloads: "10,550", cover: "rasm1.jpg", src: "" },
+            { artist: "ASLIXAN", title: "Umidim Yox ft Yegane Orucova", duration: "03:17", downloads: "10,278", cover: "rasm2.jpg", src: "2.mp3" },
+            { artist: "BLOK3", title: "Bir Kalp Bikere Sever ft Ati242", duration: "04:00", downloads: "9,215", cover: "rasm3.jpg", src: "3.mp3" },
+            { artist: "SERDAR ORTAÇ", title: "Yasemin ft Burak Bulut", duration: "03:06", downloads: "7,806", cover: "rasm4.jpg", src: "4.mp3" },
+            { artist: "AY YOLA", title: "Homay", duration: "04:04", downloads: "6,324", cover: "rasm5.jpg", src: "5.mp3" },
+            { artist: "KURTULUŞ KUŞ", title: "Rüya Gibi", duration: "02:31", downloads: "5,759", cover: "rasm6.jpg", src: "6.mp3" },
+            { artist: "BLOK3", title: "Napıyosun Mesela", duration: "03:05", downloads: "5,581", cover: "rasm7.jpg", src: "7.mp3" },
+            { artist: "ADAM", title: "Zhurek (Isko Alvarez Remix)", duration: "03:14", downloads: "5,175", cover: "rasm8.jpg", src: "8.mp3" },
+            { artist: "BALABEY & GULAGA", title: "Şeir Dedim Qezəl Dedim...", duration: "14:50", downloads: "5,084", cover: "rasm9.jpg", src: "9.mp3" },
+            { artist: "ATI242", title: "Her Nerdeysen", duration: "02:29", downloads: "4,933", cover: "rasm10.jpg", src: "10.mp3" }
+        ];
+
+        const playlistContainer = document.getElementById('playlist');
+        const audioPlayer = document.getElementById('audio-player');
+        
+        // Ikonkalarni SVG formatida o'zgaruvchilarga saqlab oldik
+        const clockIcon = `<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
+        const downloadIcon = `<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
+
+        // 2. JS DOM yordamida HTML ni chizish
+        songs.forEach((song, index) => {
+            const trackNumber = String(index + 1).padStart(2, '0'); // Raqamlarni 01, 02 qilib to'g'irlaydi
+            
+            const trackDiv = document.createElement('div');
+            trackDiv.classList.add('track');
+            
+            trackDiv.innerHTML = `
+                <img src="${song.cover}" alt="cover" class="cover">
+                <div class="info">
+                    <div class="artist">${song.artist}</div>
+                    <div class="title">${song.title}</div>
+                    <div class="meta">
+                        <span>${clockIcon} ${song.duration}</span>
+                        <span>${downloadIcon} ${song.downloads}</span>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="download-btn" title="Yuklab olish">${downloadIcon}</button>
+                    <div class="number">${trackNumber}</div>
+                </div>
+            `;
+
+            // 3. Muzika ustiga bosilganda uni ijro etish hodisasi
+            trackDiv.addEventListener('click', function(e) {
+                // Agar aynan yuklab olish tugmasi bosilsa, muzika qo'shilmaydi
+                if(e.target.closest('.download-btn')) {
+                    alert("Bu faylni yuklab olish funksiyasi: " + song.title);
+                    return;
+                }
+
+                // Oldin yonib turgan qatorni ko'k rangini uchiramiz
+                document.querySelectorAll('.track').forEach(t => t.classList.remove('active'));
+                
+                // Bosilgan qatorga 'active' klassini beramiz
+                trackDiv.classList.add('active');
+
+                // Audio manbasini o'zgartirib, ijroni boshlaymiz
+                audioPlayer.src = song.src;
+                audioPlayer.play();
+            });
+
+            playlistContainer.appendChild(trackDiv);
+        });
+    </script>
+</body>
+</html>
